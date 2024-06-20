@@ -28,3 +28,61 @@ decode = lambda l: ''.join([int_to_char[i] for i in l])
 
 print(encode("hii there"))
 print(decode(encode("hii there")))
+
+# encode all of shakespeare
+import torch
+data = torch.tensor(encode(text), dtype=torch.long)
+print(data.shape, data.dtype)
+print(data[:1000])
+
+# Split off training and validation data
+cutoff = int(0.9*len(data))
+train_data = data[:cutoff]
+val_data = data[cutoff:]
+
+#confirm that we've split the data 90:10
+print(len(train_data))
+print(len(val_data))
+ 
+# set the context size of the transformer
+context_size = 8
+
+print(train_data[:context_size+1])
+
+x = train_data[:context_size]
+y = train_data[1:context_size+1]
+for i in range(context_size):
+    context = x[:i+1]
+    target = y[i]
+    print(f"We want to use {context} to predict {target}")
+
+torch.manual_seed(1337)
+batch_size = 4 # how many independent sequences of integers do we process in parallel?
+context_size = 8 # What is the max amount of integers we use to predict the next integer?
+
+def get_batch(split):
+    data = train_data if split == 'train' else val_data
+    # generate a tensor. populate it with random integers from 0 to just under the dataset length. Put them in a (4,1) matrix.
+    start_index_predictor = torch.randint(len(data) - context_size, (batch_size,))
+    predictors = torch.stack([data[i:i+context_size] for i in start_index_predictor])
+    targets = torch.stack([data[i+1:i+context_size+1] for i in start_index_predictor])
+    return predictors, targets
+
+predictor_b, target_b = get_batch('train')
+print('inputs:')
+print(predictor_b.shape)
+print(predictor_b)
+print('outputs:')
+print(target_b.shape)
+print(target_b)
+
+import torch.nn as nn
+
+class BigramLanguageModel(nn.Module):
+    def __ini__(self, vocab_size):
+        super().__init__()
+        #Make a lookup table for each letter. Each letter gets a vector with the vocab 
+        # length because each value is essentially the probability of the next letter, 
+        # for all possible letters. Eg. column 1 might represent 'a'. (1,1) is the odds 
+        # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
+        self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
