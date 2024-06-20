@@ -79,10 +79,24 @@ print(target_b)
 import torch.nn as nn
 
 class BigramLanguageModel(nn.Module):
-    def __ini__(self, vocab_size):
+    def __init__(self, vocab_size):
         super().__init__()
         #Make a lookup table for each letter. Each letter gets a vector with the vocab 
         # length because each value is essentially the probability of the next letter, 
         # for all possible letters. Eg. column 1 might represent 'a'. (1,1) is the odds 
         # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
         self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
+
+    def forward(self, input_tensor, targets):
+        # when we pass our input tensor to the embedding table, each integer 
+        # (think character) is then matched to its embedding vector. Hence we obtain a 
+        # new dimension to our previously only batch x context_len matrix. Now we get 
+        # batch x context_len x vocab length. Each integer now becomes a probability 
+        # distribution over the next word.
+        logits = self.token_embedding_table(input_tensor)
+        
+        return logits
+    
+m = BigramLanguageModel(vocab_size)
+out = m(predictor_b, target_b)
+print(out.shape)
