@@ -77,6 +77,7 @@ print(target_b.shape)
 print(target_b)
 
 import torch.nn as nn
+torch.manual_seed(1337)
 
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
@@ -93,10 +94,40 @@ class BigramLanguageModel(nn.Module):
         # new dimension to our previously only batch x context_len matrix. Now we get 
         # batch x context_len x vocab length. Each integer now becomes a probability 
         # distribution over the next word.
-        logits = self.token_embedding_table(input_tensor)
+        logits = self.token_embedding_table(input_tensor) #(batch x context_size x vocab_length)
+
+        if targets is None:
+            loss = None
+        else:
+            B, T, C = logits.shape #This outputs integer values for each of the dimensions of our logits tensor
+
+            logits = logits.view(B*T, C) # make a long single file line of probability distributions to predict the targets
+
+            targets = targets.view(B*T) #
+
+            loss = torch.nn.functional.cross_entropy(logits, targets=None)
         
-        return logits
+        return logits, loss
+        # the logits that we return will be a single file list of probability distributions trying to predict the next character
+        # The loss that we return will be the average loss of these probability distributions in actually predicting the target next character
     
-m = BigramLanguageModel(vocab_size)
-out = m(predictor_b, target_b)
-print(out.shape)
+    def generate(self, input_tensor, max_new_tokens):
+        # input_tensor is the (batch x context_length) matrix
+        for _ in range(max_new_tokens): # '_' just means that we need to run the loop as many times as specified, but we can ignore the index when doing so
+            logits, loss = self(input_tensor) #in pytorch when we call the __call__ method (which is what happens when we use an object as a function), we get forward(). Basically this step calls forward on our input tensor
+            #Just look at the prob dist. we have for the very last token in the context window
+            final_token_logit = logits[:, -1, :] #batch x vocab_length
+            #Take the softmax of these logits to get the probabilities of the next token being each of the possible values in the vocab
+            probs = torch.nn.functional.softmax(final_token_logit, dim = 1) #batch x vocab_length
+            #Sample from this prob dist; get a realization of the next token
+            next_token = torch.multinomial(probs, num_samples=1) # batch x 1
+            #Append this new token to our input tensor
+            output_tensor = torch.cat((input_tensor, next_token), dim = 1) #batch x context_length+1
+        return output_tensor
+
+
+    
+model = BigramLanguageModel(vocab_size)
+logits, loss = model(predictor_b, target_b)
+print(logits.shape)
+print(loss)
