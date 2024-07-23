@@ -17,12 +17,22 @@ for b in range (B):
 
 print(x_bag_of_words)
 
+weighted = torch.tril(torch.ones(T, T))
+weighted = weighted / torch.sum(weighted, dim = 1, keepdim=True)
+x_bag_of_words2 = weighted @ x # Does a 
+
+
 # toy example illustrating how matrix multiplication can be used for a "weighted aggregation"
 torch.manual_seed(42)
 a = torch.tril(torch.ones(3, 3))
-a = a / torch.sum(a, 1, keepdim=True)
+row_sums = torch.sum(a, dim = 1, keepdim=True)
+print(row_sums)
+
+weighted_sums = a / row_sums
+print(weighted_sums)
+
 b = torch.randint(0,10,(3,2)).float()
-c = a @ b
+c = weighted_sums @ b
 print('a=')
 print(a)
 print('--')
