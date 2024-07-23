@@ -143,7 +143,7 @@ optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
 #increase the batch size -- now we want to actually optimize things quickly, not just create intuition
 batch_size = 32
-for steps in range(1000):
+for steps in range(10000):
 
     #sample batch of data
     input_batch, target_batch = get_batch('train')
@@ -153,4 +153,8 @@ for steps in range(1000):
     loss.backward()
     optimizer.step()
 
+#print our loss at the end of training
 print(loss.item())
+
+#Generate 100 new tokens
+print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()))
