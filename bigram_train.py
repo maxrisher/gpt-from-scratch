@@ -161,32 +161,25 @@ class BigramLanguageModel(nn.Module):
 
     
 model = BigramLanguageModel(vocab_size)
-logits, loss = model(predictor_b, target_b)
-print(logits.shape)
-print(loss)
-
-# This below generates a new sequence of tokens. We start with a single batch. The context window is just a single token: the integer zero. 
-# Because "generate" creates a batch x context_length+max_tokens matrix, we need to select just the first (and only) batch dimension. We then convert this vector to a python list.
-# model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()
-
-print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()))
+model_export = model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 
-#increase the batch size -- now we want to actually optimize things quickly, not just create intuition
-batch_size = 32
-for steps in range(10000):
+for iter in range(max_iters):
+    
+    #Here is our evaluation logic. Every so often we output our loss estimates
+    if iter % eval_interval == 0:
+        losses = estimate_loss()
+        print(f"step {iter}: train loss {losses['train']}, val loss {losses['validation']}")
 
-    #sample batch of data
+    #Here is the core training logic
+    #
     input_batch, target_batch = get_batch('train')
 
-    logits, loss = model(input_batch, target_batch)
+    logits, loss = model_export()
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
-#print our loss at the end of training
-print(loss.item())
-
 #Generate 100 new tokens
-print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()))
+print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long, device=device), max_new_tokens=100)[0].tolist()))
