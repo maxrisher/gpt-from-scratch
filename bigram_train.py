@@ -1,3 +1,19 @@
+import torch
+import torch.nn as nn
+
+# Hyperparameters
+batch_size = 32
+block_size = 8
+max_iters = 3000
+eval_interval = 300
+learning_rate = 1e-2
+device = 'cuda' if torch.cuda.is_availiable() else 'cpu'
+eval_sample_size = 200
+
+torch.manual_seed(1337)
+
+
+
 # Download the dataset
 with open('shakespeare_input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
@@ -30,7 +46,6 @@ print(encode("hii there"))
 print(decode(encode("hii there")))
 
 # encode all of shakespeare
-import torch
 data = torch.tensor(encode(text), dtype=torch.long)
 print(data.shape, data.dtype)
 print(data[:1000])
@@ -67,6 +82,23 @@ def get_batch(split):
     predictors = torch.stack([data[i:i+context_size] for i in start_index_predictor])
     targets = torch.stack([data[i+1:i+context_size+1] for i in start_index_predictor])
     return predictors, targets
+
+#this decorator means that pytorch will not store loss values (because this is just for evaluation of the model)
+@torch.no_grad()
+def estimate_loss():
+    summary = {}
+    model.eval()
+    for split in ['train', 'validation']:
+        losses = torch.zeros(eval_sample_size)
+        for iteration in eval_sample_size:
+            predictors, targets = get_batch(split)
+            logits, loss = model(predictors, targets)
+            losses[iteration] = loss.item()
+        summary[split] = losses.mean()
+
+    #reset the model to training mode
+    model.train()
+    return summary
 
 predictor_b, target_b = get_batch('train')
 print('inputs:')
