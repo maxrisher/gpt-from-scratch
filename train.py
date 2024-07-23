@@ -88,7 +88,7 @@ class BigramLanguageModel(nn.Module):
         # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
         self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
 
-    def forward(self, input_tensor, targets):
+    def forward(self, input_tensor, targets=None):
         # when we pass our input tensor to the embedding table, each integer 
         # (think character) is then matched to its embedding vector. Hence we obtain a 
         # new dimension to our previously only batch x context_len matrix. Now we get 
@@ -105,7 +105,7 @@ class BigramLanguageModel(nn.Module):
 
             targets = targets.view(B*T) #
 
-            loss = torch.nn.functional.cross_entropy(logits, targets=None)
+            loss = torch.nn.functional.cross_entropy(logits, targets)
         
         return logits, loss
         # the logits that we return will be a single file list of probability distributions trying to predict the next character
@@ -123,6 +123,7 @@ class BigramLanguageModel(nn.Module):
             next_token = torch.multinomial(probs, num_samples=1) # batch x 1
             #Append this new token to our input tensor
             output_tensor = torch.cat((input_tensor, next_token), dim = 1) #batch x context_length+1
+            input_tensor = output_tensor
         return output_tensor
 
 
@@ -131,3 +132,9 @@ model = BigramLanguageModel(vocab_size)
 logits, loss = model(predictor_b, target_b)
 print(logits.shape)
 print(loss)
+
+# This below generates a new sequence of tokens. We start with a single batch. The context window is just a single token: the integer zero. 
+# Because "generate" creates a batch x context_length+max_tokens matrix, we need to select just the first (and only) batch dimension. We then convert this vector to a python list.
+# model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()
+
+print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()))
