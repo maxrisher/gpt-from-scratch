@@ -138,3 +138,19 @@ print(loss)
 # model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()
 
 print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long), max_new_tokens=100)[0].tolist()))
+
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+
+#increase the batch size -- now we want to actually optimize things quickly, not just create intuition
+batch_size = 32
+for steps in range(1000):
+
+    #sample batch of data
+    input_batch, target_batch = get_batch('train')
+
+    logits, loss = model(input_batch, target_batch)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+
+print(loss.item())
