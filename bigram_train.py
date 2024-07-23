@@ -7,7 +7,7 @@ block_size = 8
 max_iters = 3000
 eval_interval = 300
 learning_rate = 1e-2
-device = 'cuda' if torch.cuda.is_availiable() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_sample_size = 200
 
 torch.manual_seed(1337)
@@ -90,7 +90,7 @@ def estimate_loss():
     model.eval()
     for split in ['train', 'validation']:
         losses = torch.zeros(eval_sample_size)
-        for iteration in eval_sample_size:
+        for iteration in range(eval_sample_size):
             predictors, targets = get_batch(split)
             logits, loss = model(predictors, targets)
             losses[iteration] = loss.item()
@@ -163,7 +163,7 @@ class BigramLanguageModel(nn.Module):
 model = BigramLanguageModel(vocab_size)
 model_export = model.to(device)
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for iter in range(max_iters):
     
@@ -176,10 +176,10 @@ for iter in range(max_iters):
     #
     input_batch, target_batch = get_batch('train')
 
-    logits, loss = model_export()
+    logits, loss = model_export(input_batch, target_batch)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
 
 #Generate 100 new tokens
-print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long, device=device), max_new_tokens=100)[0].tolist()))
+print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long, device=device), max_new_tokens=500)[0].tolist()))
