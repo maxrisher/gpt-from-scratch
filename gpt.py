@@ -21,6 +21,8 @@ weighted = torch.tril(torch.ones(T, T))
 weighted = weighted / torch.sum(weighted, dim = 1, keepdim=True)
 x_bag_of_words2 = weighted @ x # Does a 
 
+print(x_bag_of_words[0])
+print(x_bag_of_words2[0])
 
 # toy example illustrating how matrix multiplication can be used for a "weighted aggregation"
 torch.manual_seed(42)
