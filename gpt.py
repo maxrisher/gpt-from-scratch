@@ -5,6 +5,8 @@ B, T, C = 4, 8, 2
 x = torch.randn(B, T, C)
 print(x.shape)
 
+## Version 1
+
 # double parentheses because we need to send a tuple, not three separate arguments to torch.zeros()
 x_bag_of_words = torch.zeros((B,T,C))
 for b in range (B):
@@ -17,12 +19,21 @@ for b in range (B):
 
 print(x_bag_of_words)
 
+## Version 2
 weighted = torch.tril(torch.ones(T, T))
 weighted = weighted / torch.sum(weighted, dim = 1, keepdim=True)
 x_bag_of_words2 = weighted @ x # Does a 
 
 print(x_bag_of_words[0])
 print(x_bag_of_words2[0])
+
+## Version 3
+#matrix of zeros
+#matrix of ones in triangle
+#mask
+#apply softmax
+#print
+
 
 # toy example illustrating how matrix multiplication can be used for a "weighted aggregation"
 torch.manual_seed(42)
