@@ -29,9 +29,13 @@ print(x_bag_of_words2[0])
 
 ## Version 3
 #matrix of zeros
+w = torch.zeros((T,T))
 #matrix of ones in triangle
+tril = torch.tril(torch.ones((T,T)))
 #mask
+w = w.masked_fill(tril == 0, float('-inf'))
 #apply softmax
+x_bag_of_words3 = torch.nn.functional.softmax(w, dim = 1)
 #print
 
 
