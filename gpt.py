@@ -4,8 +4,8 @@ import torch.nn as nn
 # Hyperparameters
 batch_size = 32
 block_size = 8
-max_iters = 3000
-eval_interval = 300
+max_iters = 5000
+eval_interval = 500
 learning_rate = 1e-3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_sample_size = 200
@@ -112,6 +112,41 @@ print(target_b)
 import torch.nn as nn
 torch.manual_seed(1337)
 
+class Head(nn.Module):
+    """ one head of self-attention """
+
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embed, head_size, bias=False)
+        self.query = nn.Linear(n_embed, head_size, bias=False)
+        self.value = nn.Linear(n_embed, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+
+    def forward(self, x):
+        B,T,C = x.shape
+
+        k = self.key(x) # B x T x head_size
+        q = self.query(x) # BxTxhead_size
+        v = self.value(x) # BxTxhead_size
+
+        #find affinity between k and q
+        wei = q @ k.transpose(-2, -1) * C**-0.5 # we scale the wei values by the square root of the embedding space size. This is so that the values in wei do not get so large that softmax just selects the highest one
+        # B x T x T
+
+        #mask future values
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) #use [:T, :T] to cut down the tril matrix to the size of the context window in our input tensor
+        # B x T x T
+
+        #softmax
+        wei = nn.functional.softmax(wei, dim = -1)
+        # B x T x T
+
+        #values by weights
+        out = wei @ v
+        # B x T x head_size
+
+        return out
+
 class BigramLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -159,7 +194,7 @@ class BigramLanguageModel(nn.Module):
 
             idx_cut = input_tensor[:,-block_size:] # we need to trim down our matrix to be batch x context_length before running it through. Essentially chop of the 0th position token and add the 8th position token to maintain a block size of 8 after a generation
 
-            logits, loss = self(input_tensor) #in pytorch when we call the __call__ method (which is what happens when we use an object as a function), we get forward(). Basically this step calls forward on our input tensor
+            logits, loss = self(idx_cut) #in pytorch when we call the __call__ method (which is what happens when we use an object as a function), we get forward(). Basically this step calls forward on our input tensor
             #Just look at the prob dist. we have for the very last token in the context window
             final_token_logit = logits[:, -1, :] #batch x vocab_length
             #Take the softmax of these logits to get the probabilities of the next token being each of the possible values in the vocab
@@ -173,7 +208,7 @@ class BigramLanguageModel(nn.Module):
 
 
     
-model = BigramLanguageModel(vocab_size)
+model = BigramLanguageModel()
 model_export = model.to(device)
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -189,7 +224,7 @@ for iter in range(max_iters):
     #
     input_batch, target_batch = get_batch('train')
 
-    logits, loss = model_export(input_batch, target_batch)
+    logits, loss = model(input_batch, target_batch)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
@@ -197,40 +232,3 @@ for iter in range(max_iters):
 #Generate 100 new tokens
 print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long, device=device), max_new_tokens=500)[0].tolist()))
 
-
-
-
-class Head(nn.Model):
-    """ one head of self-attention """
-
-    def __init__(self, head_size):
-        super().__init__()
-        self.key = nn.Linear(n_embed, head_size, bias=False)
-        self.query = nn.Linear(n_embed, head_size, bias=False)
-        self.value = nn.Linear(n_embed, head_size, bias=False)
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-
-    def forward(self, x):
-        B,T,C = x.shape
-
-        k = self.key(x) # B x T x head_size
-        q = self.query(x) # BxTxhead_size
-        v = self.value(x) # BxTxhead_size
-
-        #find affinity between k and q
-        wei = q @ k.transpose(-2, -1) * C**-0.5 # we scale the wei values by the square root of the embedding space size. This is so that the values in wei do not get so large that softmax just selects the highest one
-        # B x T x T
-
-        #mask future values
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) #use [:T, :T] to cut down the tril matrix to the size of the context window in our input tensor
-        # B x T x T
-
-        #softmax
-        wei = nn.functional.softmax(wei, dim = -1)
-        # B x T x T
-
-        #values by weights
-        out = wei @ v
-        # B x T x head_size
-
-        return out
