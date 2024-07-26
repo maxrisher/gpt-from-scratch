@@ -121,6 +121,7 @@ class BigramLanguageModel(nn.Module):
         # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
         self.position_embedding_table = nn.Embedding(block_size, n_embed)
+        self.sa_head = Head(n_embed)
         self.lm_head = nn.Linear(n_embed, vocab_size) #Here we scale down the logits to be embedded in n_embed dimensions. Then we scale them back up to reach the number of dimensions in the full vocab size. 
 
     def forward(self, input_tensor, targets=None):
@@ -134,6 +135,7 @@ class BigramLanguageModel(nn.Module):
         token_embed = self.token_embedding_table(input_tensor) #(batch x context_size x n_embed)
         pos_embed = self.position_embedding_table(torch.arange(T, device=device)) #torch.arange just creates integers from 0 to T-1; embedding this vector produces a T x C matrix (we expand the C dimension when we embed)
         x = token_embed + pos_embed #Creates a B x T x C tensor. We add the T x C information to all batches
+        x = self.sa_head(x) #feed our tensor to self-attention head
         logits = self.lm_head(x) #Creates B x T x vocab_size tensor
 
         if targets is None:
@@ -154,6 +156,9 @@ class BigramLanguageModel(nn.Module):
     def generate(self, input_tensor, max_new_tokens):
         # input_tensor is the (batch x context_length) matrix
         for _ in range(max_new_tokens): # '_' just means that we need to run the loop as many times as specified, but we can ignore the index when doing so
+
+            idx_cut = input_tensor[:,-block_size:] # we need to trim down our matrix to be batch x context_length before running it through. Essentially chop of the 0th position token and add the 8th position token to maintain a block size of 8 after a generation
+
             logits, loss = self(input_tensor) #in pytorch when we call the __call__ method (which is what happens when we use an object as a function), we get forward(). Basically this step calls forward on our input tensor
             #Just look at the prob dist. we have for the very last token in the context window
             final_token_logit = logits[:, -1, :] #batch x vocab_length
