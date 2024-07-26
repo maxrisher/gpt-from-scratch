@@ -157,6 +157,20 @@ class MultiHeadedAttention(nn.Module):
         return torch.cat([h(x) for h in self.heads], dim =-1) #forward just calls forward on all of the heads. We then take these B x T x head_size tensors and stack them in the head_size direction
         # outputs BxTxhead_size*n_heads
 
+class FeedForward(nn.Module):
+    """ Simple linear layer followed by non-linearity """
+
+    def __init__(self, n_embed):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embed, n_embed), #here we add a linear layer to 'think' about the output of the previous layer
+            nn.ReLU(), #add an activation layer here, to add non-linearities
+        )
+        
+        # add an input layer, a hidden layer, and an output layer
+    
+    def forward(self, x):
+        return self.net(x) 
 
 class BigramLanguageModel(nn.Module):
     def __init__(self):
@@ -168,6 +182,7 @@ class BigramLanguageModel(nn.Module):
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
         self.position_embedding_table = nn.Embedding(block_size, n_embed)
         self.sa_heads = MultiHeadedAttention(4, n_embed//4) #split whatever our n_embed is across 4 different heads of attention. Round down when the division is not even.
+        self.ffwd = FeedForward(n_embed)
         self.lm_head = nn.Linear(n_embed, vocab_size) #Here we scale down the logits to be embedded in n_embed dimensions. Then we scale them back up to reach the number of dimensions in the full vocab size. 
 
     def forward(self, input_tensor, targets=None):
@@ -182,6 +197,7 @@ class BigramLanguageModel(nn.Module):
         pos_embed = self.position_embedding_table(torch.arange(T, device=device)) #torch.arange just creates integers from 0 to T-1; embedding this vector produces a T x C matrix (we expand the C dimension when we embed)
         x = token_embed + pos_embed #Creates a B x T x C tensor. We add the T x C information to all batches
         x = self.sa_heads(x) #feed our tensor to self-attention heads
+        x = self.ffwd(x) # B,T,C
         logits = self.lm_head(x) #Creates B x T x vocab_size tensor
 
         if targets is None:
