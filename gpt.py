@@ -76,6 +76,7 @@ def get_batch(split):
     start_index_predictor = torch.randint(len(data) - block_size, (batch_size,))
     predictors = torch.stack([data[i:i+block_size] for i in start_index_predictor])
     targets = torch.stack([data[i+1:i+block_size+1] for i in start_index_predictor])
+    predictors, targets = predictors.to(device), targets.to(device)
     return predictors, targets
 
 #this decorator means that pytorch will not store loss values (because this is just for evaluation of the model)
