@@ -289,5 +289,8 @@ for iter in range(max_iters):
     optimizer.step()
 
 #Generate 100 new tokens
-print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long, device=device), max_new_tokens=500)[0].tolist()))
 
+context = torch.zeros((1,1), dtype = torch.long, device=device)
+
+print(decode(model.generate(context, max_new_tokens=500)[0].tolist()))
+open('more.txt', 'w').write(decode(model.generate(context, max_new_tokens=10000)[0].tolist()))
