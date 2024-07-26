@@ -171,6 +171,20 @@ class FeedForward(nn.Module):
     
     def forward(self, x):
         return self.net(x) 
+    
+class Block(nn.Module):
+    """ A transformer block which combines self-attention with computation """
+
+    def __init__(self, n_embed, n_heads):
+        super().__init__()
+
+        self.sa = MultiHeadedAttention(n_heads, n_embed//n_heads)
+        self.ffwd = FeedForward(n_embed)
+
+    def forward(self, x):
+        x = self.sa(x)
+        x = self.ffwd(x)
+        return x
 
 class BigramLanguageModel(nn.Module):
     def __init__(self):
@@ -181,8 +195,11 @@ class BigramLanguageModel(nn.Module):
         # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
         self.position_embedding_table = nn.Embedding(block_size, n_embed)
-        self.sa_heads = MultiHeadedAttention(4, n_embed//4) #split whatever our n_embed is across 4 different heads of attention. Round down when the division is not even.
-        self.ffwd = FeedForward(n_embed)
+        self.blocks = nn.Sequential(
+            Block(n_embed, n_heads=4),
+            Block(n_embed, n_heads=4),
+            Block(n_embed, n_heads=4)
+        )
         self.lm_head = nn.Linear(n_embed, vocab_size) #Here we scale down the logits to be embedded in n_embed dimensions. Then we scale them back up to reach the number of dimensions in the full vocab size. 
 
     def forward(self, input_tensor, targets=None):
@@ -196,8 +213,7 @@ class BigramLanguageModel(nn.Module):
         token_embed = self.token_embedding_table(input_tensor) #(batch x context_size x n_embed)
         pos_embed = self.position_embedding_table(torch.arange(T, device=device)) #torch.arange just creates integers from 0 to T-1; embedding this vector produces a T x C matrix (we expand the C dimension when we embed)
         x = token_embed + pos_embed #Creates a B x T x C tensor. We add the T x C information to all batches
-        x = self.sa_heads(x) #feed our tensor to self-attention heads
-        x = self.ffwd(x) # B,T,C
+        x = self.blocks(x) #feed our tensor to attention blocks
         logits = self.lm_head(x) #Creates B x T x vocab_size tensor
 
         if targets is None:
