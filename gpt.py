@@ -168,9 +168,9 @@ class FeedForward(nn.Module):
     def __init__(self, n_embed):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_embed, n_embed), #here we add a linear layer to 'think' about the output of the previous layer
+            nn.Linear(n_embed, 4 * n_embed), #here we add a linear layer to 'think' about the output of the previous layer
             nn.ReLU(), #add an activation layer here, to add non-linearities
-            nn.Linear(n_embed, n_embed) # add a linear transformation of the fast forward head: our 'projection' back into the residual pathway
+            nn.Linear(4 * n_embed, n_embed) # add a linear transformation of the fast forward head: our 'projection' back into the residual pathway
         )
         
         # add an input layer, a hidden layer, and an output layer
