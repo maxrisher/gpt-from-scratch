@@ -2,14 +2,16 @@ import torch
 import torch.nn as nn
 
 # Hyperparameters
-batch_size = 32
-block_size = 8
+batch_size = 64
+block_size = 256
 max_iters = 5000
 eval_interval = 500
-learning_rate = 1e-3
+learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_sample_size = 200
-n_embed = 32
+n_embed = 384
+n_heads = 6
+n_layer = 6
 p_dropout = 0.2
 
 torch.manual_seed(1337)
@@ -201,7 +203,7 @@ class Block(nn.Module):
         x = x + self.ffwd(self.ln2(x)) #same here
         return x
 
-class BigramLanguageModel(nn.Module):
+class GPTLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
         #Make a lookup table for each letter. Each letter gets a vector with the vocab 
@@ -210,13 +212,20 @@ class BigramLanguageModel(nn.Module):
         # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
         self.position_embedding_table = nn.Embedding(block_size, n_embed)
-        self.blocks = nn.Sequential(
-            Block(n_embed, n_heads=4),
-            Block(n_embed, n_heads=4),
-            Block(n_embed, n_heads=4),
-            nn.LayerNorm(n_embed)
-        )
+        self.blocks = nn.Sequential(*[Block(n_embed, n_heads=n_heads) for _ in range(n_layer)])
+        self.ln_f = nn.LayerNorm(n_embed) #final layer norm -- now outside of the blocks
         self.lm_head = nn.Linear(n_embed, vocab_size) #Here we scale down the logits to be embedded in n_embed dimensions. Then we scale them back up to reach the number of dimensions in the full vocab size. 
+
+        # Karpathy: better init, not covered in the original GPT video, but important
+        self.apply(self._init_weights)
+
+    def _init_weights(self, module):
+        if isinstance(module, nn.Linear):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, input_tensor, targets=None):
         B, T = input_tensor.shape
@@ -230,6 +239,7 @@ class BigramLanguageModel(nn.Module):
         pos_embed = self.position_embedding_table(torch.arange(T, device=device)) #torch.arange just creates integers from 0 to T-1; embedding this vector produces a T x C matrix (we expand the C dimension when we embed)
         x = token_embed + pos_embed #Creates a B x T x C tensor. We add the T x C information to all batches
         x = self.blocks(x) #feed our tensor to attention blocks
+        x = self.ln_f(x) # final layer norm
         logits = self.lm_head(x) #Creates B x T x vocab_size tensor
 
         if targets is None:
@@ -267,8 +277,10 @@ class BigramLanguageModel(nn.Module):
 
 
     
-model = BigramLanguageModel()
+model = GPTLanguageModel()
 model_export = model.to(device)
+# print the number of parameters in the model
+print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
