@@ -191,3 +191,37 @@ for iter in range(max_iters):
 
 #Generate 100 new tokens
 print(decode(model.generate(input_tensor=torch.zeros((1,1), dtype = torch.long, device=device), max_new_tokens=500)[0].tolist()))
+
+
+
+
+class Head(nn.Model):
+    """ one head of self-attention """
+
+    def __init__(self, head_size):
+        super().__init__()
+        self.key = nn.Linear(n_embed, head_size, bias=False)
+        self.query = nn.Linear(n_embed, head_size, bias=False)
+        self.value = nn.Linear(n_embed, head_size, bias=False)
+        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+
+    def forward(self, x):
+        B,T,C = x.shape
+
+        k = self.key(x)
+        q = self.query(x)
+        v = self.value(x)
+
+        #find affinity between k and q
+        wei = q @ k.transpose(-2, -1) * C**-0.5 # we scale the wei values by the square root of the embedding space size. This is so that the values in wei do not get so large that softmax just selects the highest one
+
+        #mask future values
+        wei = wei.masked_fill(self.tril == 0, float('-inf'))
+
+        #softmax
+        wei = nn.functional.softmax(wei, dim = -1)
+
+        #values by weights
+        out = wei @ v
+
+        return out
