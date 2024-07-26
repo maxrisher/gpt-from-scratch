@@ -186,10 +186,13 @@ class Block(nn.Module):
 
         self.sa = MultiHeadedAttention(n_heads, n_embed//n_heads)
         self.ffwd = FeedForward(n_embed)
+        self.ln1 = nn.LayerNorm(n_embed)
+        self.ln2 = nn.LayerNorm(n_embed)
 
     def forward(self, x):
-        x = x + self.sa(x) #set the 'default' value of x to be itself, let the self attention block estimate a residual instead of the true function
-        x = x + self.ffwd(x) #same here
+        # we want to layer normalize our tensors before every block. This makes all features of each token mean 0 and std 1
+        x = x + self.sa(self.ln1(x)) #set the 'default' value of x to be itself, let the self attention block estimate a residual instead of the true function
+        x = x + self.ffwd(self.ln2(x)) #same here
         return x
 
 class BigramLanguageModel(nn.Module):
@@ -204,7 +207,8 @@ class BigramLanguageModel(nn.Module):
         self.blocks = nn.Sequential(
             Block(n_embed, n_heads=4),
             Block(n_embed, n_heads=4),
-            Block(n_embed, n_heads=4)
+            Block(n_embed, n_heads=4),
+            nn.LayerNorm(n_embed)
         )
         self.lm_head = nn.Linear(n_embed, vocab_size) #Here we scale down the logits to be embedded in n_embed dimensions. Then we scale them back up to reach the number of dimensions in the full vocab size. 
 
