@@ -280,9 +280,9 @@ class GPTLanguageModel(nn.Module):
 model = GPTLanguageModel()
 model_export = model.to(device)
 # print the number of parameters in the model
-print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
+print(sum(p.numel() for p in model_export.parameters())/1e6, 'M parameters')
 
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.AdamW(model_export.parameters(), lr=learning_rate)
 
 for iter in range(max_iters):
     
@@ -295,7 +295,7 @@ for iter in range(max_iters):
     #
     input_batch, target_batch = get_batch('train')
 
-    logits, loss = model(input_batch, target_batch)
+    logits, loss = model_export(input_batch, target_batch)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
@@ -304,5 +304,5 @@ for iter in range(max_iters):
 
 context = torch.zeros((1,1), dtype = torch.long, device=device)
 
-print(decode(model.generate(context, max_new_tokens=500)[0].tolist()))
-open('more.txt', 'w').write(decode(model.generate(context, max_new_tokens=10000)[0].tolist()))
+print(decode(model_export.generate(context, max_new_tokens=500)[0].tolist()))
+open('more.txt', 'w').write(decode(model_export.generate(context, max_new_tokens=10000)[0].tolist()))
