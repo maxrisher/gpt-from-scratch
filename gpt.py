@@ -152,10 +152,15 @@ class MultiHeadedAttention(nn.Module):
     def __init__(self, n_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(n_heads)]) # create a Head with a given head size for all of the heads we want to create
+        self.proj = nn.Linear(n_embed, n_embed)
 
     def forward(self, x):
-        return torch.cat([h(x) for h in self.heads], dim =-1) #forward just calls forward on all of the heads. We then take these B x T x head_size tensors and stack them in the head_size direction
+        out = torch.cat([h(x) for h in self.heads], dim =-1) #forward just calls forward on all of the heads. We then take these B x T x head_size tensors and stack them in the head_size direction
         # outputs BxTxhead_size*n_heads
+
+        out = self.proj(x) #linear transform the output of the attention heads
+
+        return out
 
 class FeedForward(nn.Module):
     """ Simple linear layer followed by non-linearity """
@@ -165,6 +170,7 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(n_embed, n_embed), #here we add a linear layer to 'think' about the output of the previous layer
             nn.ReLU(), #add an activation layer here, to add non-linearities
+            nn.Linear(n_embed, n_embed) # add a linear transformation of the fast forward head: our 'projection' back into the residual pathway
         )
         
         # add an input layer, a hidden layer, and an output layer
@@ -182,8 +188,8 @@ class Block(nn.Module):
         self.ffwd = FeedForward(n_embed)
 
     def forward(self, x):
-        x = self.sa(x)
-        x = self.ffwd(x)
+        x = x + self.sa(x) #set the 'default' value of x to be itself, let the self attention block estimate a residual instead of the true function
+        x = x + self.ffwd(x) #same here
         return x
 
 class BigramLanguageModel(nn.Module):
