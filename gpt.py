@@ -282,7 +282,7 @@ model_export = model.to(device)
 # print the number of parameters in the model
 print(sum(p.numel() for p in model_export.parameters())/1e6, 'M parameters')
 
-optimizer = torch.optim.AdamW(model_export.parameters(), lr=learning_rate)
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
 for iter in range(max_iters):
     
@@ -295,7 +295,7 @@ for iter in range(max_iters):
     #
     input_batch, target_batch = get_batch('train')
 
-    logits, loss = model_export(input_batch, target_batch)
+    logits, loss = model(input_batch, target_batch)
     optimizer.zero_grad(set_to_none=True)
     loss.backward()
     optimizer.step()
