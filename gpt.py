@@ -112,6 +112,7 @@ print(target_b)
 import torch.nn as nn
 torch.manual_seed(1337)
 
+
 class Head(nn.Module):
     """ one head of self-attention """
 
@@ -147,6 +148,16 @@ class Head(nn.Module):
 
         return out
 
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, n_heads, head_size):
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(n_heads)]) # create a Head with a given head size for all of the heads we want to create
+
+    def forward(self, x):
+        return torch.cat([h(x) for h in self.heads], dim =-1) #forward just calls forward on all of the heads. We then take these B x T x head_size tensors and stack them in the head_size direction
+        # outputs BxTxhead_size*n_heads
+
+
 class BigramLanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -156,7 +167,7 @@ class BigramLanguageModel(nn.Module):
         # of 'a' coming after 'a' and (1,26) the odds of 'z' after 'a'
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
         self.position_embedding_table = nn.Embedding(block_size, n_embed)
-        self.sa_head = Head(n_embed)
+        self.sa_heads = MultiHeadedAttention(4, n_embed//4) #split whatever our n_embed is across 4 different heads of attention. Round down when the division is not even.
         self.lm_head = nn.Linear(n_embed, vocab_size) #Here we scale down the logits to be embedded in n_embed dimensions. Then we scale them back up to reach the number of dimensions in the full vocab size. 
 
     def forward(self, input_tensor, targets=None):
@@ -170,7 +181,7 @@ class BigramLanguageModel(nn.Module):
         token_embed = self.token_embedding_table(input_tensor) #(batch x context_size x n_embed)
         pos_embed = self.position_embedding_table(torch.arange(T, device=device)) #torch.arange just creates integers from 0 to T-1; embedding this vector produces a T x C matrix (we expand the C dimension when we embed)
         x = token_embed + pos_embed #Creates a B x T x C tensor. We add the T x C information to all batches
-        x = self.sa_head(x) #feed our tensor to self-attention head
+        x = self.sa_heads(x) #feed our tensor to self-attention heads
         logits = self.lm_head(x) #Creates B x T x vocab_size tensor
 
         if targets is None:
