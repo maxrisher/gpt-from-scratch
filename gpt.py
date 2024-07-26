@@ -17,7 +17,7 @@ p_dropout = 0.2
 torch.manual_seed(1337)
 
 # Download the dataset
-with open('shakespeare_input.txt', 'r', encoding='utf-8') as f:
+with open('kanye_input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 print("length of our condensed shakespeare:", len (text))
@@ -284,4 +284,4 @@ for iter in range(max_iters):
 context = torch.zeros((1,1), dtype = torch.long, device=device)
 
 print(decode(model.generate(context, max_new_tokens=500)[0].tolist()))
-open('more.txt', 'w').write(decode(model.generate(context, max_new_tokens=10000)[0].tolist()))
+open('more_kanye.txt', 'w').write(decode(model.generate(context, max_new_tokens=10000)[0].tolist()))
