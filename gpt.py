@@ -10,6 +10,7 @@ learning_rate = 1e-3
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_sample_size = 200
 n_embed = 32
+p_dropout = 0.2
 
 torch.manual_seed(1337)
 
@@ -122,6 +123,7 @@ class Head(nn.Module):
         self.query = nn.Linear(n_embed, head_size, bias=False)
         self.value = nn.Linear(n_embed, head_size, bias=False)
         self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
+        self.dropout = nn.Dropout(p_dropout)
 
     def forward(self, x):
         B,T,C = x.shape
@@ -142,6 +144,8 @@ class Head(nn.Module):
         wei = nn.functional.softmax(wei, dim = -1)
         # B x T x T
 
+        wei = self.dropout(wei)
+
         #values by weights
         out = wei @ v
         # B x T x head_size
@@ -153,12 +157,13 @@ class MultiHeadedAttention(nn.Module):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(n_heads)]) # create a Head with a given head size for all of the heads we want to create
         self.proj = nn.Linear(n_embed, n_embed)
+        self.dropout = nn.Dropout(p_dropout)
 
     def forward(self, x):
         out = torch.cat([h(x) for h in self.heads], dim =-1) #forward just calls forward on all of the heads. We then take these B x T x head_size tensors and stack them in the head_size direction
         # outputs BxTxhead_size*n_heads
 
-        out = self.proj(x) #linear transform the output of the attention heads
+        out = self.dropout(self.proj(x)) #linear transform the output of the attention heads
 
         return out
 
@@ -170,7 +175,8 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(n_embed, 4 * n_embed), #here we add a linear layer to 'think' about the output of the previous layer
             nn.ReLU(), #add an activation layer here, to add non-linearities
-            nn.Linear(4 * n_embed, n_embed) # add a linear transformation of the fast forward head: our 'projection' back into the residual pathway
+            nn.Linear(4 * n_embed, n_embed), # add a linear transformation of the fast forward head: our 'projection' back into the residual pathway
+            nn.Dropout(p_dropout) #randomly remove 'p_dropout' proportion of the nodes
         )
         
         # add an input layer, a hidden layer, and an output layer
