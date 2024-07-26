@@ -208,20 +208,24 @@ class Head(nn.Model):
     def forward(self, x):
         B,T,C = x.shape
 
-        k = self.key(x)
-        q = self.query(x)
-        v = self.value(x)
+        k = self.key(x) # B x T x head_size
+        q = self.query(x) # BxTxhead_size
+        v = self.value(x) # BxTxhead_size
 
         #find affinity between k and q
         wei = q @ k.transpose(-2, -1) * C**-0.5 # we scale the wei values by the square root of the embedding space size. This is so that the values in wei do not get so large that softmax just selects the highest one
+        # B x T x T
 
         #mask future values
-        wei = wei.masked_fill(self.tril == 0, float('-inf'))
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) #use [:T, :T] to cut down the tril matrix to the size of the context window in our input tensor
+        # B x T x T
 
         #softmax
         wei = nn.functional.softmax(wei, dim = -1)
+        # B x T x T
 
         #values by weights
         out = wei @ v
+        # B x T x head_size
 
         return out
