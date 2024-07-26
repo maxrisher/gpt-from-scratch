@@ -163,7 +163,7 @@ class MultiHeadedAttention(nn.Module):
         out = torch.cat([h(x) for h in self.heads], dim =-1) #forward just calls forward on all of the heads. We then take these B x T x head_size tensors and stack them in the head_size direction
         # outputs BxTxhead_size*n_heads
 
-        out = self.dropout(self.proj(x)) #linear transform the output of the attention heads
+        out = self.dropout(self.proj(out)) #linear transform the output of the attention heads
 
         return out
 
