@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 
 # Hyperparameters
-batch_size = 64
-block_size = 256
+batch_size = 64 # how many independent sequences of integers do we process in parallel?
+block_size = 256 # What is the max amount of integers we use to predict the next integer?
 max_iters = 5000
 eval_interval = 500
 learning_rate = 3e-4
@@ -15,8 +15,6 @@ n_layer = 6
 p_dropout = 0.2
 
 torch.manual_seed(1337)
-
-
 
 # Download the dataset
 with open('shakespeare_input.txt', 'r', encoding='utf-8') as f:
@@ -62,29 +60,22 @@ val_data = data[cutoff:]
 #confirm that we've split the data 90:10
 print(len(train_data))
 print(len(val_data))
- 
-# set the context size of the transformer
-context_size = 8
 
-print(train_data[:context_size+1])
+print(train_data[:block_size+1])
 
-x = train_data[:context_size]
-y = train_data[1:context_size+1]
-for i in range(context_size):
+x = train_data[:block_size]
+y = train_data[1:block_size+1]
+for i in range(block_size):
     context = x[:i+1]
     target = y[i]
     print(f"We want to use {context} to predict {target}")
 
-torch.manual_seed(1337)
-batch_size = 4 # how many independent sequences of integers do we process in parallel?
-context_size = 8 # What is the max amount of integers we use to predict the next integer?
-
 def get_batch(split):
     data = train_data if split == 'train' else val_data
     # generate a tensor. populate it with random integers from 0 to just under the dataset length. Put them in a (4,1) matrix.
-    start_index_predictor = torch.randint(len(data) - context_size, (batch_size,))
-    predictors = torch.stack([data[i:i+context_size] for i in start_index_predictor])
-    targets = torch.stack([data[i+1:i+context_size+1] for i in start_index_predictor])
+    start_index_predictor = torch.randint(len(data) - block_size, (batch_size,))
+    predictors = torch.stack([data[i:i+block_size] for i in start_index_predictor])
+    targets = torch.stack([data[i+1:i+block_size+1] for i in start_index_predictor])
     return predictors, targets
 
 #this decorator means that pytorch will not store loss values (because this is just for evaluation of the model)
@@ -103,18 +94,6 @@ def estimate_loss():
     #reset the model to training mode
     model.train()
     return summary
-
-predictor_b, target_b = get_batch('train')
-print('inputs:')
-print(predictor_b.shape)
-print(predictor_b)
-print('outputs:')
-print(target_b.shape)
-print(target_b)
-
-import torch.nn as nn
-torch.manual_seed(1337)
-
 
 class Head(nn.Module):
     """ one head of self-attention """
@@ -158,7 +137,7 @@ class MultiHeadedAttention(nn.Module):
     def __init__(self, n_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(n_heads)]) # create a Head with a given head size for all of the heads we want to create
-        self.proj = nn.Linear(n_embed, n_embed)
+        self.proj = nn.Linear(n_heads * head_size, n_embed) #project from all channels from the attention heads to the embedding channels
         self.dropout = nn.Dropout(p_dropout)
 
     def forward(self, x):
@@ -277,10 +256,9 @@ class GPTLanguageModel(nn.Module):
 
 
     
-model = GPTLanguageModel()
-model_export = model.to(device)
+model = GPTLanguageModel().to(device)
 # print the number of parameters in the model
-print(sum(p.numel() for p in model_export.parameters())/1e6, 'M parameters')
+print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
@@ -304,5 +282,5 @@ for iter in range(max_iters):
 
 context = torch.zeros((1,1), dtype = torch.long, device=device)
 
-print(decode(model_export.generate(context, max_new_tokens=500)[0].tolist()))
-open('more.txt', 'w').write(decode(model_export.generate(context, max_new_tokens=10000)[0].tolist()))
+print(decode(model.generate(context, max_new_tokens=500)[0].tolist()))
+open('more.txt', 'w').write(decode(model.generate(context, max_new_tokens=10000)[0].tolist()))
